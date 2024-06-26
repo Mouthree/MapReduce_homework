@@ -1,5 +1,69 @@
 # MapReduce
 
+### 写在前面
+
+每一次操作之前都需要重复`删文件夹`, `创建文件夹`,`上传文件夹`这几步操作
+
+注意下面的`xxx`是表示要上传的文件名,如果是多个文件`每一个`都要上传
+
+每一次操作之前都需要重复`删文件夹`, `创建文件夹`,`上传文件夹`这几步操作
+
+注意下面的`xxx`是表示要上传的文件名,如果是多个文件`每一个`都要上传
+
+每一次操作之前都需要重复`删文件夹`, `创建文件夹`,`上传文件夹`这几步操作
+
+注意下面的`xxx`是表示要上传的文件名,如果是多个文件`每一个`都要上传
+
+每一次操作之前都需要重复`删文件夹`, `创建文件夹`,`上传文件夹`这几步操作
+
+注意下面的`xxx`是表示要上传的文件名,如果是多个文件`每一个`都要上传
+
+每一次操作之前都需要重复`删文件夹`, `创建文件夹`,`上传文件夹`这几步操作
+
+注意下面的`xxx`是表示要上传的文件名,如果是多个文件`每一个`都要上传
+
+每一次操作之前都需要重复`删文件夹`, `创建文件夹`,`上传文件夹`这几步操作
+
+注意下面的`xxx`是表示要上传的文件名,如果是多个文件`每一个`都要上传
+
+每一次操作之前都需要重复`删文件夹`, `创建文件夹`,`上传文件夹`这几步操作
+
+注意下面的`xxx`是表示要上传的文件名,如果是多个文件`每一个`都要上传
+
+每一次操作之前都需要重复`删文件夹`, `创建文件夹`,`上传文件夹`这几步操作
+
+注意下面的`xxx`是表示要上传的文件名,如果是多个文件`每一个`都要上传
+
+每一次操作之前都需要重复`删文件夹`, `创建文件夹`,`上传文件夹`这几步操作
+
+注意下面的`xxx`是表示要上传的文件名,如果是多个文件`每一个`都要上传
+
+如果执行错误也要删了再创
+
+如果执行错误也要删了再创
+
+如果执行错误也要删了再创
+
+如果执行错误也要删了再创
+
+如果执行错误也要删了再创
+
+如果执行错误也要删了再创
+
+如果执行错误也要删了再创
+
+```shell
+cd /usr/local/hadoop
+./bin/hdfs dfs -rm -r input
+./bin/hdfs dfs -rm -r output
+./bin/hdfs dfs -rm -r /user/hadoop/output
+./bin/hdfs dfs -mkdir input
+./bin/hdfs dfs -put ./xxx.txt input
+```
+
+
+
+
 ## 1.编程实现文件合并和去重操作
 
 先直接启动hadoop
@@ -449,6 +513,26 @@ cd /usr/local/hadoop
 vim cp.txt
 ```
 
+输入
+
+```
+child	parent
+Steven	Lucy
+Steven	Jack
+Jone	Lucy
+Jone	Jack
+Lucy	Mary
+Lucy	Frank
+Jack	Alice
+Jack	Jesse
+David	Alice
+David	Jesse
+Philip	David
+Philip	Alma
+Mark	David
+Mark	Alma
+```
+
 上传文件到hadoop中
 
 ```shell
@@ -459,5 +543,92 @@ cd /usr/local/hadoop
 新建名为`M3`的project, class名为`m3`
 
 ```java
-
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.StringTokenizer;
+public class m3 {
+    public static class RsMapper extends Mapper<Object, Text, Text, Text> {
+        private static int linenum = 0;
+        public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+            String line = value.toString();
+            if (linenum == 0) {
+                ++linenum;
+            } else {
+                StringTokenizer tokenizer = new StringTokenizer(line, "\n");
+                while (tokenizer.hasMoreElements()) {
+                    StringTokenizer lineTokenizer = new StringTokenizer(tokenizer.nextToken());
+                    String son = lineTokenizer.nextToken();
+                    String parent = lineTokenizer.nextToken();
+                    context.write(new Text(parent), new Text(
+                            "-" + son));
+                    context.write(new Text(son), new Text
+                            ("+" + parent));
+                }
+            }
+        }
+    }
+    public static class RsReducer extends Reducer<Text, Text, Text, Text> {
+        private static int linenum = 0;
+        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+            if (linenum == 0) {
+                context.write(new Text("grandson"), new Text("grandparent"));
+                ++linenum;
+            }
+            ArrayList<Text> grandChild = new ArrayList<Text>();
+            ArrayList<Text> grandParent = new ArrayList<Text>();
+ 
+            for (Text val : values) {
+                String s = val.toString();
+ 
+                if (s.startsWith("-")) {
+                    grandChild.add(new Text(s.substring(1)));
+                } else {
+                    grandParent.add(new Text(s.substring(1)));
+                }
+            }
+            for (Text text1 : grandChild) {
+                for (Text text2 : grandParent) {
+                    context.write(text1, text2);
+                }
+            }
+        }
+    }
+    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
+        Configuration cong = new Configuration();
+        String[] otherArgs = new String[]{"input",
+                "output"};
+        if (otherArgs.length != 2) {
+            System.out.println("Err");
+            System.exit(2);
+        }
+        Job job = Job.getInstance();
+        job.setJarByClass(m3.class);
+        job.setMapperClass(RsMapper.class);
+        job.setReducerClass(RsReducer.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(Text.class);
+ 
+        FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
+        FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
 ```
+
+按照之前的方法导出之后
+
+输入`./bin/hadoop jar ./myapp/m3.jar input output`运行
+
+![alt text](image-5.png)
+
+之后运行`./bin/hdfs dfs -cat output/*`查看运行结果
+
+![alt text](image-6.png)
